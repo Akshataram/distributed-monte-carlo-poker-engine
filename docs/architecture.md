@@ -126,6 +126,15 @@ else:
 
 This is the required idempotency layer for SQS/Lambda at-least-once delivery.
 
+The deploy script separates two concurrency concepts:
+
+```text
+WORKER_MAX_CONCURRENCY      caps SQS -> Lambda scaling
+WORKER_RESERVED_CONCURRENCY optionally reserves Lambda account capacity
+```
+
+For interview defense: the target design uses 100-way worker concurrency, but small AWS accounts may need a Lambda quota increase before they can reserve 100 concurrent executions.
+
 ## Local-First Boundary
 
 The `internal/poker` package has no AWS dependencies. Lambda handlers should live in separate adapter packages and call the same pure simulation API used by the local CLI.

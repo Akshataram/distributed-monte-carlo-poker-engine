@@ -21,9 +21,17 @@ The script creates or updates:
 - Lambda worker IAM role
 - Go custom-runtime worker Lambda
 - SQS event source mapping with `ReportBatchItemFailures`
-- Lambda reserved concurrency set to `100`
+- SQS event source maximum concurrency set to `100`
 
 The worker applies results through Redis Lua so duplicate SQS deliveries cannot double-count chunk output.
+
+Reserved concurrency is optional. If your AWS account has enough Lambda concurrency quota, set:
+
+```bash
+export WORKER_RESERVED_CONCURRENCY=100
+```
+
+If not set, the deploy still caps the SQS event source mapping at `WORKER_MAX_CONCURRENCY`.
 
 ## Deploy Ingestion
 

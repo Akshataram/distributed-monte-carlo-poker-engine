@@ -13,7 +13,8 @@ SUBNET_IDS="${SUBNET_IDS:-}"
 LAMBDA_SECURITY_GROUP_IDS="${LAMBDA_SECURITY_GROUP_IDS:-}"
 REDIS_SECURITY_GROUP_IDS="${REDIS_SECURITY_GROUP_IDS:-}"
 REDIS_ENGINE="${REDIS_ENGINE:-redis}"
-WORKER_RESERVED_CONCURRENCY="${WORKER_RESERVED_CONCURRENCY:-100}"
+WORKER_MAX_CONCURRENCY="${WORKER_MAX_CONCURRENCY:-100}"
+WORKER_RESERVED_CONCURRENCY="${WORKER_RESERVED_CONCURRENCY:-}"
 WORKER_BATCH_SIZE="${WORKER_BATCH_SIZE:-5}"
 AGGREGATE_TTL_SECONDS="${AGGREGATE_TTL_SECONDS:-86400}"
 
@@ -214,6 +215,10 @@ aws iam put-role-policy \
   --policy-document "file://$BUILD_DIR/worker-policy.json" >/dev/null
 ROLE_ARN="$(aws iam get-role --role-name "$WORKER_ROLE_NAME" --query Role.Arn --output text)"
 
+echo "Waiting for IAM role propagation"
+aws iam wait role-exists --role-name "$WORKER_ROLE_NAME"
+sleep 10
+
 echo "Building custom runtime Lambda binary"
 rm -f "$BUILD_DIR/bootstrap" "$ZIP_PATH"
 (
@@ -257,11 +262,18 @@ else
     --region "$AWS_REGION" >/dev/null
 fi
 
-echo "Setting worker reserved concurrency to $WORKER_RESERVED_CONCURRENCY"
-aws lambda put-function-concurrency \
-  --function-name "$WORKER_FUNCTION_NAME" \
-  --reserved-concurrent-executions "$WORKER_RESERVED_CONCURRENCY" \
-  --region "$AWS_REGION" >/dev/null
+if [[ -n "$WORKER_RESERVED_CONCURRENCY" ]]; then
+  echo "Setting worker reserved concurrency to $WORKER_RESERVED_CONCURRENCY"
+  if ! aws lambda put-function-concurrency \
+    --function-name "$WORKER_FUNCTION_NAME" \
+    --reserved-concurrent-executions "$WORKER_RESERVED_CONCURRENCY" \
+    --region "$AWS_REGION" >/dev/null; then
+    echo "Warning: unable to reserve $WORKER_RESERVED_CONCURRENCY Lambda executions. Continuing without reserved concurrency." >&2
+    echo "Request a Lambda concurrency quota increase if you need a guaranteed 100-worker reservation." >&2
+  fi
+else
+  echo "Skipping reserved concurrency. SQS event source max concurrency remains $WORKER_MAX_CONCURRENCY."
+fi
 
 echo "Creating SQS event source mapping"
 MAPPING_UUID="$(aws lambda list-event-source-mappings \
@@ -276,14 +288,14 @@ if [[ "$MAPPING_UUID" == "None" || -z "$MAPPING_UUID" ]]; then
     --event-source-arn "$QUEUE_ARN" \
     --batch-size "$WORKER_BATCH_SIZE" \
     --function-response-types ReportBatchItemFailures \
-    --scaling-config "MaximumConcurrency=$WORKER_RESERVED_CONCURRENCY" \
+    --scaling-config "MaximumConcurrency=$WORKER_MAX_CONCURRENCY" \
     --region "$AWS_REGION" >/dev/null
 else
   aws lambda update-event-source-mapping \
     --uuid "$MAPPING_UUID" \
     --batch-size "$WORKER_BATCH_SIZE" \
     --function-response-types ReportBatchItemFailures \
-    --scaling-config "MaximumConcurrency=$WORKER_RESERVED_CONCURRENCY" \
+    --scaling-config "MaximumConcurrency=$WORKER_MAX_CONCURRENCY" \
     --region "$AWS_REGION" >/dev/null
 fi
 
@@ -295,7 +307,8 @@ cat > "$BUILD_DIR/outputs.json" <<JSON
   "redis_cache_name": "$REDIS_CACHE_NAME",
   "redis_addr": "$REDIS_ADDR",
   "worker_function_name": "$WORKER_FUNCTION_NAME",
-  "worker_reserved_concurrency": "$WORKER_RESERVED_CONCURRENCY"
+  "worker_max_concurrency": "$WORKER_MAX_CONCURRENCY",
+  "worker_reserved_concurrency": "${WORKER_RESERVED_CONCURRENCY:-null}"
 }
 JSON
 

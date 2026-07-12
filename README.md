@@ -80,6 +80,8 @@ export SUBNET_IDS=subnet-a,subnet-b
 ./infra/aws-cli/deploy_phase3_worker.sh
 ```
 
+`WORKER_MAX_CONCURRENCY=100` caps the SQS event source mapping. `WORKER_RESERVED_CONCURRENCY` is optional because smaller AWS accounts may not have enough Lambda quota to reserve 100 executions.
+
 ## Phase 4: AWS CLI ingestion layer
 
 `infra/aws-cli/deploy_phase4_ingestion.sh` provisions the real ingestion path with AWS CLI:
