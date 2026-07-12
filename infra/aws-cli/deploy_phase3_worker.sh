@@ -239,7 +239,6 @@ if aws lambda get-function --function-name "$WORKER_FUNCTION_NAME" --region "$AW
     --handler bootstrap \
     --timeout 120 \
     --memory-size 1024 \
-    --reserved-concurrent-executions "$WORKER_RESERVED_CONCURRENCY" \
     --environment "$ENV_VARS" \
     --vpc-config "$VPC_CONFIG" \
     --region "$AWS_REGION" >/dev/null
@@ -253,11 +252,16 @@ else
     --architectures arm64 \
     --timeout 120 \
     --memory-size 1024 \
-    --reserved-concurrent-executions "$WORKER_RESERVED_CONCURRENCY" \
     --environment "$ENV_VARS" \
     --vpc-config "$VPC_CONFIG" \
     --region "$AWS_REGION" >/dev/null
 fi
+
+echo "Setting worker reserved concurrency to $WORKER_RESERVED_CONCURRENCY"
+aws lambda put-function-concurrency \
+  --function-name "$WORKER_FUNCTION_NAME" \
+  --reserved-concurrent-executions "$WORKER_RESERVED_CONCURRENCY" \
+  --region "$AWS_REGION" >/dev/null
 
 echo "Creating SQS event source mapping"
 MAPPING_UUID="$(aws lambda list-event-source-mappings \
