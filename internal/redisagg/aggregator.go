@@ -96,8 +96,9 @@ func (a *Aggregator) ApplyChunkResult(ctx context.Context, delta worker.Aggregat
 		return false, worker.AggregateSnapshot{}, fmt.Errorf("expected chunks must be positive")
 	}
 
-	processedKey := fmt.Sprintf("processed:%s:%d:%d", delta.HandID, delta.BoardVersion, delta.ChunkID)
-	aggregateKey := fmt.Sprintf("aggregate:%s:%d", delta.HandID, delta.BoardVersion)
+	slotTag := redisSlotTag(delta.HandID, delta.BoardVersion)
+	processedKey := fmt.Sprintf("processed:%s:%d", slotTag, delta.ChunkID)
+	aggregateKey := fmt.Sprintf("aggregate:%s", slotTag)
 	reply, err := a.client.Do(ctx,
 		"EVAL", applyChunkScript, "2", processedKey, aggregateKey,
 		strconv.Itoa(int(a.ttl.Seconds())),
@@ -143,7 +144,7 @@ func (a *Aggregator) GetSnapshot(ctx context.Context, handID string, boardVersio
 		return worker.AggregateSnapshot{}, false, fmt.Errorf("board version cannot be negative")
 	}
 
-	aggregateKey := fmt.Sprintf("aggregate:%s:%d", handID, boardVersion)
+	aggregateKey := fmt.Sprintf("aggregate:%s", redisSlotTag(handID, boardVersion))
 	reply, err := a.client.Do(ctx, "HGETALL", aggregateKey)
 	if err != nil {
 		return worker.AggregateSnapshot{}, false, err
@@ -192,6 +193,10 @@ func asInt64(value any) int64 {
 	default:
 		return 0
 	}
+}
+
+func redisSlotTag(handID string, boardVersion int) string {
+	return fmt.Sprintf("{%s:%d}", handID, boardVersion)
 }
 
 func dial(ctx context.Context, addr string, useTLS bool, timeout time.Duration) (net.Conn, error) {

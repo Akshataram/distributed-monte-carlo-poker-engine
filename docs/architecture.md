@@ -140,7 +140,7 @@ For interview defense: the target design uses 100-way worker concurrency, but sm
 The result API reads the Redis aggregate hash:
 
 ```text
-aggregate:{hand_id}:{board_version}
+aggregate:{hand_id:board_version}
 ```
 
 It returns:
@@ -155,6 +155,13 @@ equity and equity_percent
 This keeps ingestion asynchronous. `POST /hands` queues work and returns quickly; `GET /hands/{hand_id}/results` polls the fan-in barrier.
 
 ElastiCache Serverless endpoints are reached from VPC-attached Lambdas with TLS enabled.
+
+Because ElastiCache Serverless behaves like Redis Cluster, the worker uses Redis hash tags so Lua keys share one slot:
+
+```text
+processed:{hand_id:board_version}:chunk_id
+aggregate:{hand_id:board_version}
+```
 
 ## Local-First Boundary
 
