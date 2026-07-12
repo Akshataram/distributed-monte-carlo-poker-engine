@@ -14,11 +14,12 @@ type SimulationRequest struct {
 }
 
 type SimulationResult struct {
-	Iterations int
-	Wins       int
-	Ties       int
-	Losses     int
-	Equity     float64
+	Iterations   int
+	Wins         int
+	Ties         int
+	Losses       int
+	EquityMicros int64
+	Equity       float64
 }
 
 func Simulate(req SimulationRequest) (SimulationResult, error) {
@@ -54,7 +55,6 @@ func Simulate(req SimulationRequest) (SimulationResult, error) {
 	oppCards := make([]Card, 7)
 
 	var result SimulationResult
-	var equitySum float64
 
 	for i := 0; i < req.Iterations; i++ {
 		copy(scratch, deck)
@@ -96,15 +96,30 @@ func Simulate(req SimulationRequest) (SimulationResult, error) {
 			result.Losses++
 		case tiedBest > 0:
 			result.Ties++
-			equitySum += 1.0 / float64(tiedBest+1)
+			result.EquityMicros += int64(1_000_000 / (tiedBest + 1))
 		default:
 			result.Wins++
-			equitySum += 1.0
+			result.EquityMicros += 1_000_000
 		}
 	}
 
-	result.Equity = equitySum / float64(result.Iterations)
+	result.Equity = float64(result.EquityMicros) / float64(result.Iterations*1_000_000)
 	return result, nil
+}
+
+func MergeResults(results ...SimulationResult) SimulationResult {
+	var merged SimulationResult
+	for _, result := range results {
+		merged.Iterations += result.Iterations
+		merged.Wins += result.Wins
+		merged.Ties += result.Ties
+		merged.Losses += result.Losses
+		merged.EquityMicros += result.EquityMicros
+	}
+	if merged.Iterations > 0 {
+		merged.Equity = float64(merged.EquityMicros) / float64(merged.Iterations*1_000_000)
+	}
+	return merged
 }
 
 func partialShuffle(cards []Card, n int, rng *rand.Rand) {

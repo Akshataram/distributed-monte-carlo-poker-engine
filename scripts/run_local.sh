@@ -6,4 +6,5 @@ export GOCACHE="$PWD/.gocache"
 
 go test ./...
 go run ./cmd/sim -hero "As Ah" -board "" -opponents 1 -n 100000 -seed 42
+go run ./cmd/sim -hero "As Ah" -board "" -opponents 1 -n 100000 -chunk-size 10000 -hand-id demo-aa -board-version 0 -seed 42
 go run ./cmd/sim -hero "As Ks" -board "Qs Js 2d" -opponents 1 -n 100000 -seed 42
