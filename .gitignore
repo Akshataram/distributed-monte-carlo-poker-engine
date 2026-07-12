@@ -1,7 +1,9 @@
 .gocache/
+.build/
+__pycache__/
+*.pyc
 bin/
 dist/
 coverage.out
 *.test
 .DS_Store
-

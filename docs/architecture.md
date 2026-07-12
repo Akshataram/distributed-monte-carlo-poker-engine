@@ -29,6 +29,34 @@ The SQS message body is intentionally small and deterministic:
 
 This is enough for a worker to recompute the same chunk on retry without reading shared mutable simulation state.
 
+## Ingestion Session Continuity
+
+The Phase 4 ingestion Lambda handles two request shapes.
+
+New hand:
+
+```json
+{
+  "hero": ["As", "Ah"],
+  "board": [],
+  "opponents": 1,
+  "total_iterations": 1000000,
+  "iterations_per_chunk": 10000,
+  "base_seed": 42
+}
+```
+
+Continuation:
+
+```json
+{
+  "hand_id": "<existing-hand-id>",
+  "board": ["Ks", "Qs", "Js"]
+}
+```
+
+For continuation requests, hero cards and simulation settings are loaded from DynamoDB. The new board must preserve previous community cards and may only move forward. That prevents a stale client from accidentally changing the meaning of an existing `hand_id`.
+
 ## Idempotency Model
 
 Each simulation chunk is identified by:
@@ -79,6 +107,24 @@ HINCRBY aggregate:{hand_id}:{board_version} completed_chunks 1
 ```
 
 In Redis, these commands should be wrapped in a Lua script or transaction-like flow so the idempotency claim and counter updates are applied as one unit.
+
+The production worker now uses a Redis Lua script with this shape:
+
+```text
+SET processed:{hand_id}:{board_version}:{chunk_id} 1 NX EX ttl
+if claim succeeds:
+  HSET aggregate:{hand_id}:{board_version} expected_chunks n
+  HINCRBY aggregate:{hand_id}:{board_version} completed_chunks 1
+  HINCRBY aggregate:{hand_id}:{board_version} iterations n
+  HINCRBY aggregate:{hand_id}:{board_version} wins n
+  HINCRBY aggregate:{hand_id}:{board_version} ties n
+  HINCRBY aggregate:{hand_id}:{board_version} losses n
+  HINCRBY aggregate:{hand_id}:{board_version} equity_micros n
+else:
+  return existing aggregate snapshot
+```
+
+This is the required idempotency layer for SQS/Lambda at-least-once delivery.
 
 ## Local-First Boundary
 
