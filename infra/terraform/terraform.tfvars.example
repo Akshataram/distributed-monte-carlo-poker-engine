@@ -1,0 +1,29 @@
+# AWS Configuration
+aws_region   = "us-east-1"
+project_name = "poker-ev"
+stage_name   = "dev"
+
+# Networking Configuration
+# These are required because Lambda and ElastiCache must reside in the same VPC.
+vpc_id       = "vpc-1234567890abcdef0"
+subnet_ids   = [
+  "subnet-abcdef0123456789a",
+  "subnet-abcdef0123456789b"
+]
+
+# Engine Type: "redis" or "valkey"
+redis_engine = "redis"
+log_retention_days = 14
+enable_cloudwatch_alarms = true
+enable_dynamodb_point_in_time_recovery = true
+
+# Optional Performance Settings
+# worker_max_concurrency      = 100
+# worker_reserved_concurrency = null
+# worker_batch_size           = 5
+# worker_queue_visibility_timeout_seconds = 180
+# aggregate_ttl_seconds       = 86400
+
+tags = {
+  Owner = "akshata"
+}

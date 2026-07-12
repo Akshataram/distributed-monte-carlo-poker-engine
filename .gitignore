@@ -7,3 +7,12 @@ dist/
 coverage.out
 *.test
 .DS_Store
+
+# Terraform local/runtime files
+**/.terraform/
+**/.build/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+infra/terraform/backend.tf

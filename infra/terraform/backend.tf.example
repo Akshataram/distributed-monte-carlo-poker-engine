@@ -1,0 +1,13 @@
+# Copy this file to backend.tf after creating the S3 state bucket.
+# Terraform backend blocks cannot use variables, so keep real backend config local
+# until the backend resources exist.
+
+terraform {
+  backend "s3" {
+    bucket       = "poker-ev-terraform-state-ACCOUNT_ID-us-east-1"
+    key          = "poker-ev/prod/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
