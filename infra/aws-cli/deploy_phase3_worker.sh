@@ -232,6 +232,8 @@ VPC_CONFIG="SubnetIds=[$SUBNET_IDS],SecurityGroupIds=[$LAMBDA_SECURITY_GROUP_IDS
 
 echo "Creating or updating worker Lambda: $WORKER_FUNCTION_NAME"
 if aws lambda get-function --function-name "$WORKER_FUNCTION_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+  echo "Waiting for existing worker Lambda to become active"
+  aws lambda wait function-active-v2 --function-name "$WORKER_FUNCTION_NAME" --region "$AWS_REGION"
   aws lambda update-function-code \
     --function-name "$WORKER_FUNCTION_NAME" \
     --zip-file "fileb://$ZIP_PATH" \
@@ -247,6 +249,7 @@ if aws lambda get-function --function-name "$WORKER_FUNCTION_NAME" --region "$AW
     --environment "$ENV_VARS" \
     --vpc-config "$VPC_CONFIG" \
     --region "$AWS_REGION" >/dev/null
+  aws lambda wait function-updated --function-name "$WORKER_FUNCTION_NAME" --region "$AWS_REGION"
 else
   aws lambda create-function \
     --function-name "$WORKER_FUNCTION_NAME" \
@@ -260,6 +263,7 @@ else
     --environment "$ENV_VARS" \
     --vpc-config "$VPC_CONFIG" \
     --region "$AWS_REGION" >/dev/null
+  aws lambda wait function-active-v2 --function-name "$WORKER_FUNCTION_NAME" --region "$AWS_REGION"
 fi
 
 if [[ -n "$WORKER_RESERVED_CONCURRENCY" ]]; then
