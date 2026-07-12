@@ -51,9 +51,17 @@ DLQ_ARN="$(aws sqs get-queue-attributes \
   --output text \
   --region "$AWS_REGION")"
 
+cat > "$BUILD_DIR/work-queue-attributes.json" <<JSON
+{
+  "VisibilityTimeout": "180",
+  "MessageRetentionPeriod": "86400",
+  "RedrivePolicy": "{\"deadLetterTargetArn\":\"$DLQ_ARN\",\"maxReceiveCount\":\"3\"}"
+}
+JSON
+
 QUEUE_URL="$(aws sqs create-queue \
   --queue-name "$QUEUE_NAME" \
-  --attributes "VisibilityTimeout=180,MessageRetentionPeriod=86400,RedrivePolicy={\"deadLetterTargetArn\":\"$DLQ_ARN\",\"maxReceiveCount\":\"3\"}" \
+  --attributes "file://$BUILD_DIR/work-queue-attributes.json" \
   --query QueueUrl \
   --output text \
   --region "$AWS_REGION")"
