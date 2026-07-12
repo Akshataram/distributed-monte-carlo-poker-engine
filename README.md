@@ -82,6 +82,16 @@ export SUBNET_IDS=subnet-a,subnet-b
 
 `WORKER_MAX_CONCURRENCY=100` caps the SQS event source mapping. `WORKER_RESERVED_CONCURRENCY` is optional because smaller AWS accounts may not have enough Lambda quota to reserve 100 executions.
 
+## Phase 5: Result status API
+
+The status Lambda reads Redis aggregate state and exposes:
+
+```text
+GET /hands/{hand_id}/results?board_version=0
+```
+
+It returns progress while workers are running and final EV once all chunks complete.
+
 ## Phase 4: AWS CLI ingestion layer
 
 `infra/aws-cli/deploy_phase4_ingestion.sh` provisions the real ingestion path with AWS CLI:

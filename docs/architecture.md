@@ -135,6 +135,25 @@ WORKER_RESERVED_CONCURRENCY optionally reserves Lambda account capacity
 
 For interview defense: the target design uses 100-way worker concurrency, but small AWS accounts may need a Lambda quota increase before they can reserve 100 concurrent executions.
 
+## Result Status API
+
+The result API reads the Redis aggregate hash:
+
+```text
+aggregate:{hand_id}:{board_version}
+```
+
+It returns:
+
+```text
+status: running | complete
+completed_chunks / expected_chunks
+wins, ties, losses
+equity and equity_percent
+```
+
+This keeps ingestion asynchronous. `POST /hands` queues work and returns quickly; `GET /hands/{hand_id}/results` polls the fan-in barrier.
+
 ## Local-First Boundary
 
 The `internal/poker` package has no AWS dependencies. Lambda handlers should live in separate adapter packages and call the same pure simulation API used by the local CLI.

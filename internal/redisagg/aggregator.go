@@ -135,6 +135,53 @@ func (a *Aggregator) ApplyChunkResult(ctx context.Context, delta worker.Aggregat
 	return applied, snapshot, nil
 }
 
+func (a *Aggregator) GetSnapshot(ctx context.Context, handID string, boardVersion int) (worker.AggregateSnapshot, bool, error) {
+	if handID == "" {
+		return worker.AggregateSnapshot{}, false, fmt.Errorf("hand id is required")
+	}
+	if boardVersion < 0 {
+		return worker.AggregateSnapshot{}, false, fmt.Errorf("board version cannot be negative")
+	}
+
+	aggregateKey := fmt.Sprintf("aggregate:%s:%d", handID, boardVersion)
+	reply, err := a.client.Do(ctx, "HGETALL", aggregateKey)
+	if err != nil {
+		return worker.AggregateSnapshot{}, false, err
+	}
+	values, ok := reply.([]any)
+	if !ok {
+		return worker.AggregateSnapshot{}, false, fmt.Errorf("unexpected redis HGETALL reply: %#v", reply)
+	}
+	if len(values) == 0 {
+		return worker.AggregateSnapshot{}, false, nil
+	}
+
+	fields := map[string]int64{}
+	for i := 0; i+1 < len(values); i += 2 {
+		name, ok := values[i].(string)
+		if !ok {
+			continue
+		}
+		fields[name] = asInt64(values[i+1])
+	}
+
+	snapshot := worker.AggregateSnapshot{
+		HandID:          handID,
+		BoardVersion:    boardVersion,
+		ExpectedChunks:  int(fields["expected_chunks"]),
+		CompletedChunks: int(fields["completed_chunks"]),
+		Iterations:      int(fields["iterations"]),
+		Wins:            int(fields["wins"]),
+		Ties:            int(fields["ties"]),
+		Losses:          int(fields["losses"]),
+		EquityMicros:    fields["equity_micros"],
+	}
+	if snapshot.Iterations > 0 {
+		snapshot.Equity = float64(snapshot.EquityMicros) / float64(snapshot.Iterations*1_000_000)
+	}
+	return snapshot, true, nil
+}
+
 func asInt64(value any) int64 {
 	switch v := value.(type) {
 	case int64:

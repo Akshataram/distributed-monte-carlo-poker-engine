@@ -66,6 +66,29 @@ curl -sS "$HANDS_URL" \
   }'
 ```
 
+## Deploy Result Status API
+
+Phase 5 adds:
+
+```text
+GET /hands/{hand_id}/results?board_version=0
+```
+
+Deploy:
+
+```bash
+export VPC_ID=vpc-...
+export SUBNET_IDS=subnet-a,subnet-b
+export LAMBDA_SECURITY_GROUP_IDS=sg-...
+./infra/aws-cli/deploy_phase5_status.sh
+```
+
+Then query:
+
+```bash
+curl -sS "$API_ENDPOINT/hands/$HAND_ID/results?board_version=0"
+```
+
 For continuation after the flop, pass the returned `hand_id`:
 
 ```bash
