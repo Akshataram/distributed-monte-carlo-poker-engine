@@ -23,13 +23,15 @@ ZIP_PATH="$BUILD_DIR/ingestion.zip"
 echo "Deploying Phase 4 ingestion stack to region $AWS_REGION"
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text --region "$AWS_REGION")"
 
-echo "Creating or locating SQS queue: $QUEUE_NAME"
-QUEUE_URL="$(aws sqs create-queue \
+echo "Locating worker SQS queue: $QUEUE_NAME"
+if ! QUEUE_URL="$(aws sqs get-queue-url \
   --queue-name "$QUEUE_NAME" \
-  --attributes VisibilityTimeout=120,MessageRetentionPeriod=86400 \
   --query QueueUrl \
   --output text \
-  --region "$AWS_REGION")"
+  --region "$AWS_REGION" 2>/dev/null)"; then
+  echo "Worker queue $QUEUE_NAME does not exist. Run ./infra/aws-cli/deploy_phase3_worker.sh first." >&2
+  exit 1
+fi
 QUEUE_ARN="$(aws sqs get-queue-attributes \
   --queue-url "$QUEUE_URL" \
   --attribute-names QueueArn \
@@ -112,6 +114,10 @@ aws iam put-role-policy \
   --policy-document "file://$BUILD_DIR/ingestion-policy.json" >/dev/null
 ROLE_ARN="$(aws iam get-role --role-name "$ROLE_NAME" --query Role.Arn --output text)"
 
+echo "Waiting for IAM role propagation"
+aws iam wait role-exists --role-name "$ROLE_NAME"
+sleep 10
+
 echo "Packaging Lambda: $ZIP_PATH"
 rm -f "$ZIP_PATH"
 (cd "$ROOT_DIR/cmd/ingestion-lambda" && zip -qr "$ZIP_PATH" app.py)
@@ -120,6 +126,8 @@ ENV_VARS="Variables={HAND_SESSIONS_TABLE=$TABLE_NAME,WORK_QUEUE_URL=$QUEUE_URL,D
 
 echo "Creating or updating Lambda: $FUNCTION_NAME"
 if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+  echo "Waiting for existing ingestion Lambda to become active"
+  aws lambda wait function-active-v2 --function-name "$FUNCTION_NAME" --region "$AWS_REGION"
   aws lambda update-function-code \
     --function-name "$FUNCTION_NAME" \
     --zip-file "fileb://$ZIP_PATH" \
@@ -133,6 +141,7 @@ if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$AWS_REGIO
     --memory-size 512 \
     --environment "$ENV_VARS" \
     --region "$AWS_REGION" >/dev/null
+  aws lambda wait function-updated --function-name "$FUNCTION_NAME" --region "$AWS_REGION"
 else
   aws lambda create-function \
     --function-name "$FUNCTION_NAME" \
@@ -144,6 +153,7 @@ else
     --memory-size 512 \
     --environment "$ENV_VARS" \
     --region "$AWS_REGION" >/dev/null
+  aws lambda wait function-active-v2 --function-name "$FUNCTION_NAME" --region "$AWS_REGION"
 fi
 FUNCTION_ARN="$(aws lambda get-function --function-name "$FUNCTION_NAME" --query Configuration.FunctionArn --output text --region "$AWS_REGION")"
 
@@ -220,4 +230,3 @@ cat > "$BUILD_DIR/outputs.json" <<JSON
 JSON
 
 cat "$BUILD_DIR/outputs.json"
-
