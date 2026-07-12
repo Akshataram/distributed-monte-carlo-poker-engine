@@ -9,6 +9,26 @@
 5. ElastiCache Redis or Valkey performs atomic fan-in with `INCRBY`/`HINCRBY`.
 6. Aggregator Lambda checks the completion barrier and returns equity once all chunks finish.
 
+## Worker Message Contract
+
+The SQS message body is intentionally small and deterministic:
+
+```json
+{
+  "hand_id": "demo-aa",
+  "board_version": 0,
+  "chunk_id": 0,
+  "expected_chunks": 10,
+  "hero": ["As", "Ah"],
+  "board": [],
+  "opponents": 1,
+  "iterations": 10000,
+  "seed": 5988872962477750265
+}
+```
+
+This is enough for a worker to recompute the same chunk on retry without reading shared mutable simulation state.
+
 ## Idempotency Model
 
 Each simulation chunk is identified by:
@@ -37,6 +57,28 @@ HINCRBY aggregate:{hand_id}:{board_version} completed_chunks 1
 ```
 
 If `SETNX` fails, the worker exits successfully because another invocation already applied the result.
+
+## Phase 3 Worker Boundary
+
+The current implementation adds `internal/worker`, which has three responsibilities:
+
+1. Decode and validate an SQS-shaped chunk message.
+2. Run `poker.SimulateChunk` for that exact chunk.
+3. Apply counters through an `Aggregator` interface.
+
+The production Redis adapter should implement the same interface with an atomic operation equivalent to:
+
+```text
+SETNX processed:{hand_id}:{board_version}:{chunk_id} 1
+HINCRBY aggregate:{hand_id}:{board_version} iterations <n>
+HINCRBY aggregate:{hand_id}:{board_version} wins <n>
+HINCRBY aggregate:{hand_id}:{board_version} ties <n>
+HINCRBY aggregate:{hand_id}:{board_version} losses <n>
+HINCRBY aggregate:{hand_id}:{board_version} equity_micros <n>
+HINCRBY aggregate:{hand_id}:{board_version} completed_chunks 1
+```
+
+In Redis, these commands should be wrapped in a Lua script or transaction-like flow so the idempotency claim and counter updates are applied as one unit.
 
 ## Local-First Boundary
 

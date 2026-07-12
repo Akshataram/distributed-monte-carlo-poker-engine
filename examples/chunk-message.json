@@ -1,0 +1,11 @@
+{
+  "hand_id": "demo-aa",
+  "board_version": 0,
+  "chunk_id": 0,
+  "expected_chunks": 10,
+  "hero": ["As", "Ah"],
+  "board": [],
+  "opponents": 1,
+  "iterations": 10000,
+  "seed": 5988872962477750265
+}
