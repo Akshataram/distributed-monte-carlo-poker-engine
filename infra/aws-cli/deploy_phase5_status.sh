@@ -111,7 +111,7 @@ rm -f "$BUILD_DIR/bootstrap" "$ZIP_PATH"
 )
 (cd "$BUILD_DIR" && zip -q "$ZIP_PATH" bootstrap)
 
-ENV_VARS="Variables={REDIS_ADDR=$REDIS_ADDR,REDIS_TLS=false}"
+ENV_VARS="Variables={REDIS_ADDR=$REDIS_ADDR,REDIS_TLS=true}"
 VPC_CONFIG="SubnetIds=[$SUBNET_IDS],SecurityGroupIds=[$LAMBDA_SECURITY_GROUP_IDS]"
 
 echo "Creating or updating status Lambda: $FUNCTION_NAME"
@@ -211,4 +211,3 @@ cat > "$BUILD_DIR/outputs.json" <<JSON
 JSON
 
 cat "$BUILD_DIR/outputs.json"
-

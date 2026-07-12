@@ -25,6 +25,8 @@ The script creates or updates:
 
 The worker applies results through Redis Lua so duplicate SQS deliveries cannot double-count chunk output.
 
+ElastiCache Serverless uses an encrypted endpoint, so the deployed Lambdas set `REDIS_TLS=true`.
+
 Reserved concurrency is optional. If your AWS account has enough Lambda concurrency quota, set:
 
 ```bash

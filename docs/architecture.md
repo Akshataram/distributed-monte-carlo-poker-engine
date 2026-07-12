@@ -154,6 +154,8 @@ equity and equity_percent
 
 This keeps ingestion asynchronous. `POST /hands` queues work and returns quickly; `GET /hands/{hand_id}/results` polls the fan-in barrier.
 
+ElastiCache Serverless endpoints are reached from VPC-attached Lambdas with TLS enabled.
+
 ## Local-First Boundary
 
 The `internal/poker` package has no AWS dependencies. Lambda handlers should live in separate adapter packages and call the same pure simulation API used by the local CLI.
